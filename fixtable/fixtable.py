@@ -1,11 +1,11 @@
 #!/usr/bin/python
-import argparse
-import re
 import sys
+import re
+import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('file')
-parser.add_argument('varfile')
+parser.add_argument('-v', '--varfile')
 parser.add_argument('--nostata', action='store_true')
 parser.add_argument('-i', action='store_true')
 parser.add_argument('-c')
@@ -29,6 +29,7 @@ try:
         var = [x.strip().split(' ', 1) for x in v.readlines() if x.strip()]
 except:
     var = None
+    print('cannot open varfile ...', file=sys.stderr)
 
 with open(args.file, 'r') as f:
     c = f.readlines()
@@ -55,6 +56,16 @@ def formatrow(row):
     return row
 
 
+def repeat_title(row):
+    row1 = row
+    row2 = '&'.join(
+        [x for x in row.split('&') if ';' in x or re.search('^\s*$', x)])
+    for x in re.findall(r'[\w\(\)\.\s\+\-]+;[\w\(\)\.\s\+\-]+', row):
+        row1 = row1.replace(x, x.split(';')[0]).replace(r'\hline', '')
+        row2 = row2.replace(x, x.split(';')[1])
+    return row1, row2 + '\\\\ \\hline \n'
+
+
 output = []
 ctrls = []
 for _n, row in enumerate(c):
@@ -65,32 +76,34 @@ for _n, row in enumerate(c):
             del c[_n + 1]
             break
     else:
-        row = varname(row)
+        therow = varname(row)
         for x, y in changes:
-            row = row.replace(x, y)
+            therow = therow.replace(x, y)
         if not args.nostata:
-            if 'multicolumn' in row:
+            if 'multicolumn' in therow:
                 continue
-        if '1o' in row or '0b' in row:
+        if '1o' in therow or '0b' in therow:
             continue
-        if 'tabular' in row:
+        if 'tabular' in therow:
             continue
-        if '{document}' in row:
+        if '{document}' in therow:
             continue
-        if 'documentclass' in row:
+        if 'documentclass' in therow:
             continue
-        if 'setlength' in row:
+        if 'setlength' in therow:
             continue
-        if '(.)' in row:
+        if '(.)' in therow:
             continue
-        if '& . &' in row:
+        if '& . &' in therow:
             continue
-        if '& . \\' in row:
+        if '& . \\' in therow:
             continue
-        if '& (.) &' in row:
+        if '& (.) &' in therow:
             continue
-        row = formatrow(row)
-        output.append(row)
+        therow = formatrow(therow)
+        output.append(therow)
+        if 'VARIABLES' in row:
+            output.append('_add_empty_line123')
 
 main = []
 annotations = []
@@ -118,6 +131,11 @@ for n, row in enumerate(output, start=1):
     if len(main) > 0 and not re.search('\d+', r) and 'hline' not in r:
         annotations.append(r)
     else:
+        if ';' in r:
+            row1, row2 = repeat_title(r)
+            main.append(row1)
+            main.append(row2)
+            continue
         main.append(r)
 
 
@@ -127,6 +145,10 @@ def clean_line(l):
         return ''
     if l == '':
         return ''
+    if len(re.findall(r'hline', l)) > 1:
+        l = l.replace(r'\hline\\', '')
+    if '_add_empty_line123' in l:
+        return '\\\\\n'
     return l
 
 
@@ -135,7 +157,8 @@ if args.i:
 else:
     f = None
 
-print('\\\\\n', file=f)
+if args.nostata:
+    print('\\\\\n', file=f)
 for row in main:
     print(clean_line(row), file=f)
 for row in ctrls:
