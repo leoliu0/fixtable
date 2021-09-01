@@ -4,17 +4,15 @@ setup(
     name='fixtable',  # How you named your package folder (MyLib)
     packages=['fixtable'],  # Chose the same as "name"
     version=
-    '0.4',  # Start with a small number and increase it with every change you make
+    '0.5',  # Start with a small number and increase it with every change you make
     license=
     'MIT',  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     description=
     'Fix outreg2 table from stata',  # Give a short description about your library
     author='Leo Liu',  # Type in your name
     author_email='auleo.liu@gmail.com',  # Type in your E-Mail
-    url=
-    'https://github.com/leoliu0/fixtable',  # Provide either the link to your github or to your website
-    download_url=
-    'https://github.com/user/reponame/archive/v_01.tar.gz',  # I explain this later on
+    url= 'https://github.com/leoliu0/fixtable',  # Provide either the link to your github or to your website
+    download_url= 'https://github.com/leoliu0/fixtable/archive/refs/tags/v0.5.tar.gz',
     #  keywords = ['SOME', 'MEANINGFULL', 'KEYWORDS'],   # Keywords that define your package best
     #  install_requires=[
     #  'validators',
