@@ -55,7 +55,6 @@ def varname(row):
                 row = re.sub(r"\b" + x + r"\b", y, row)
             except:
                 row = row.replace(x, y)
-    row = re.sub(r'\btimes\b','$\\\\times$',row)
     return row
 
 
@@ -128,7 +127,7 @@ output = []
 ctrls = []
 for _n, row in enumerate(c):
     for ctrl in args_c:
-        if re.search(r"^" + ctrl + r" ", row):
+        if re.search(r"\b" + ctrl + r"\b", row):
             ctrls.append(formatrow(varname(row)))
             ctrls.append(formatrow(c[_n + 1]))
             del c[_n + 1]
