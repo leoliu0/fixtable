@@ -2,4 +2,4 @@
 setup.cfg
 setup.py
 fixtable/__init__.py
-fixtable/fixtable
+fixtable/fixtable.py
