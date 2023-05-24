@@ -1,0 +1,12 @@
+MANIFEST
+README.md
+license.txt
+setup.cfg
+setup.py
+fixtable/__init__.py
+fixtable/fixtable
+fixtable.egg-info/PKG-INFO
+fixtable.egg-info/SOURCES.txt
+fixtable.egg-info/dependency_links.txt
+fixtable.egg-info/requires.txt
+fixtable.egg-info/top_level.txt

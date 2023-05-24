@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!python
 import argparse
 import re
 import sys
@@ -56,7 +56,6 @@ try:
             if len(l)==1:
                 var.append([l[0],'']) 
             else:
-                l[0] = l[0].replace('_',r'\\_').replace(r'.',r'\.')
                 var.append(l) 
             
 except:
@@ -165,8 +164,7 @@ for _n, row in enumerate(c):
     if row.startswith("o."):
         continue
     for ctrl in args_c:
-        ctrl = ctrl.replace("_", "\\_").lower()
-        ctrl = ctrl.replace("l.", "L.")
+        ctrl = ctrl.replace("_", "\\_")
         if re.search(
             r"\b" + ctrl.replace("\\", "").replace("_", "") + r"\b",
             row.replace("\\", "").replace("_", ""),
