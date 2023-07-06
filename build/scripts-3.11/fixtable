@@ -46,6 +46,7 @@ changes = [
     ("Observations", "Obs."),
     ("Adjusted R-squared", "Adj. $R^2$"),
     ("R-squared", "$R^2$"),
+    ("c.", ""),
     #  ('VARIABLES', ''),
 ]
 
