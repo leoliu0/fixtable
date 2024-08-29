@@ -3,7 +3,7 @@ This package cleaned up the latex files from outreg2 in Stata and any other late
 
 - installation
 ```bash
-pip install git+https://github.com/leoliu0/fixtable.git
+pip install fixtable
 ```
 
 - usage

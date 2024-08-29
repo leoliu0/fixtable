@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fixtable"
+version = "0.6"
+description = "A command-line tool to process and format Stata output tables."
+license = {text = "MIT"}
+authors = [
+    {name = "Leo Liu", email = "auleo.liu@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["stata", "table", "formatting", "command-line"]
+
+dependencies = [
+    "loguru"
+]
+
+[project.scripts]
+fixtable = "fixtable:main"
