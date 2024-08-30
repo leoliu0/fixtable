@@ -4,6 +4,77 @@ import re
 import sys
 from loguru import logger
 
+parser = argparse.ArgumentParser(
+    description="process files and customize output format."
+)
+parser.add_argument("file", help="the file to be processed.")
+parser.add_argument(
+    "-v",
+    "--varfile",
+    metavar="varfile",
+    help="path to the variable name mapping file.",
+)
+parser.add_argument("--nostata", action="store_true", help="fix non-stata tables.")
+parser.add_argument(
+    "-i", action="store_true", help="replace the input file with the output."
+)
+parser.add_argument("-c", help="define control variables.")
+parser.add_argument(
+    "-o",
+    help="output file path. if not provided, the output will be printed to standard output.",
+)
+parser.add_argument(
+    "--dep", help="specify the dependent variable in `variables`", default=""
+)
+parser.add_argument("--cline", help="define clines.")
+parser.add_argument(
+    "--noheader", action="store_true", help="disable the header in the output."
+)
+parser.add_argument(
+    "--myheader",
+    action="store_true",
+    help="disable the header and column numbers in the output.",
+)
+parser.add_argument(
+    "--condensed", action="store_true", help="condense the output format."
+)
+parser.add_argument(
+    "--no_column_num",
+    action="store_true",
+    help="exclude column numbers from the output.",
+)
+parser.add_argument(
+    "--debug", action="store_true", help="enable debug mode for logging."
+)
+parser.add_argument(
+    "--nocontrol",
+    action="store_true",
+    help="exclude control variables from the output.",
+)
+parser.add_argument(
+    "--nocontrol_n",
+    type=int,
+    default=0,
+    metavar="nocontrol_n",
+    help="start from which control variables to exclude from the output.",
+)
+parser.add_argument(
+    "-m",
+    "--meta",
+    action="store_true",
+    help="include metadata such as the last update date in the output.",
+)
+parser.add_argument(
+    "--feorder", action="store_true", help="reorder fixed effects in the output."
+)
+
+args = parser.parse_args()
+
+
+def debug(message):
+    if args.debug:
+        logger.debug(message)
+
 
 def clean_line(l):
     l = l.strip()
@@ -115,7 +186,7 @@ def repeat_title(line):
         current_end_col = current_start_col + col_count - 2
         cline_ranges.append(f"{current_start_col}-{current_end_col}")
 
-    first_line = " && ".join(first_line_parts)
+    first_line = " & ".join(first_line_parts)
     second_line = " && ".join(second_line_parts)
     cline = "".join([f"\\cline{{{r}}}" for r in cline_ranges])
 
@@ -129,16 +200,15 @@ def process_column_header(l):
     current, counter = "", 0
     for i, x in enumerate(l):
         x = x.strip()
-        if i > 1:
-            counter += 1
+        counter += 2
         if x and x != current:
             if current:
-                header += f"\\multicolumn{{ {counter*2} }}{{c}}{{ {current} }} &"
+                header += f"\\multicolumn{{ {counter} }}{{c}}{{ {current} }} &"
             counter = 0
             current = x
         if i == len(l) - 1:
             counter += 2
-            header += f"\\multicolumn{{ {counter*2} }}{{c}}{{ {current} }} &"
+            header += f"\\multicolumn{{ {counter} }}{{c}}{{ {current} }} &"
     counter = 0
     cline = []
     current = ""
@@ -150,11 +220,10 @@ def process_column_header(l):
             if c == current:
                 cline[-1] = i * 2
             else:
-                cline.append(i) if i > 1 else cline.append(2)
-                cline.append(i)
+                cline.append(i * 2) if i > 1 else cline.append(2)
+                cline.append(i * 2 + 1)
             current = c
     output = ""
-    logger.debug(f"cline: {cline}")
     # if len(cline) == 2:
     #     return "delete_header"
     cline = iter(cline)
@@ -166,76 +235,6 @@ def process_column_header(l):
 
 # parse command-line arguments
 def main():
-    parser = argparse.ArgumentParser(
-        description="process files and customize output format."
-    )
-    parser.add_argument("file", help="the file to be processed.")
-    parser.add_argument(
-        "-v",
-        "--varfile",
-        metavar="varfile",
-        help="path to the variable name mapping file.",
-    )
-    parser.add_argument("--nostata", action="store_true", help="fix non-stata tables.")
-    parser.add_argument(
-        "-i", action="store_true", help="replace the input file with the output."
-    )
-    parser.add_argument("-c", help="define control variables.")
-    parser.add_argument(
-        "-o",
-        help="output file path. if not provided, the output will be printed to standard output.",
-    )
-    parser.add_argument(
-        "--dep", help="specify the dependent variable in `variables`", default=""
-    )
-    parser.add_argument("--cline", help="define clines.")
-    parser.add_argument(
-        "--noheader", action="store_true", help="disable the header in the output."
-    )
-    parser.add_argument(
-        "--myheader",
-        action="store_true",
-        help="disable the header and column numbers in the output.",
-    )
-    parser.add_argument(
-        "--condensed", action="store_true", help="condense the output format."
-    )
-    parser.add_argument(
-        "--no_column_num",
-        action="store_true",
-        help="exclude column numbers from the output.",
-    )
-    parser.add_argument(
-        "--debug", action="store_true", help="enable debug mode for logging."
-    )
-    parser.add_argument(
-        "--nocontrol",
-        action="store_true",
-        help="exclude control variables from the output.",
-    )
-    parser.add_argument(
-        "--nocontrol_n",
-        type=int,
-        default=0,
-        metavar="nocontrol_n",
-        help="start from which control variables to exclude from the output.",
-    )
-    parser.add_argument(
-        "-m",
-        "--meta",
-        action="store_true",
-        help="include metadata such as the last update date in the output.",
-    )
-    parser.add_argument(
-        "--feorder", action="store_true", help="reorder fixed effects in the output."
-    )
-
-    args = parser.parse_args()
-
-    def debug(message):
-        if args.debug:
-            logger.debug(message)
-
     if args.myheader:
         args.noheader = True
 
@@ -267,7 +266,7 @@ def main():
         if skip:
             skip = False
             continue
-        if row.startswith("constant"):
+        if row.startswith("Constant"):
             const.append(varname(formatrow(row), var))
             const.append(formatrow(c[_n + 1]))
             skip = True
@@ -345,7 +344,10 @@ def main():
                 else:
                     main.append("&" + row1 + "\\\\")
                     main.append("&" + row2 + "\\\\")
-                    main.append(the_cline)
+                    if args.cline:
+                        main.append(r"\cline{" + args.cline + "}")
+                    else:
+                        main.append(the_cline)
 
             elif not args.noheader:
                 the_header, the_cline = process_column_header(r)
@@ -430,9 +432,10 @@ def main():
             continue
         last = printer(clean_line(row), output_file, last)
 
-    logger.debug(f"buffers: {buffers}")
     for row in buffers:
-        if "obs" in row and not args.condensed:
+        if "hline" in row:
+            row = row[:-7]
+        if "obs" in row.lower() and not args.condensed:
             last = printer(f"{'&' * ncolumns} \\\\", output_file, last)
         if condenser(row):
             continue
