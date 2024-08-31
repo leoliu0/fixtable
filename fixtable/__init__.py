@@ -14,7 +14,6 @@ parser.add_argument(
     metavar="varfile",
     help="path to the variable name mapping file.",
 )
-parser.add_argument("--nostata", action="store_true", help="fix non-stata tables.")
 parser.add_argument(
     "-i", action="store_true", help="replace the input file with the output."
 )
@@ -262,7 +261,10 @@ def main():
     ctrls = []
     const = []
     skip = False
+    stata = False
     for _n, row in enumerate(c):
+        if row.startswith("VARLABELS"):
+            stata = True
         if skip:
             skip = False
             continue
@@ -287,7 +289,7 @@ def main():
             therow = formatrow(varname(row, var)).strip()
             for x, y in changes:
                 therow = therow.replace(x, y)
-            if not args.nostata:
+            if stata:
                 if "multicolumn" in therow:
                     continue
             if any(
@@ -314,7 +316,7 @@ def main():
                 continue
             output.append(therow)
 
-    if args.nostata:
+    if not stata:
         output = [x for x in output if x.strip()]
         output[-1] = output[-1].replace("\\", "")
     if output[-1].strip() == "hline":
@@ -328,9 +330,10 @@ def main():
     buffers = []
     fe = []
 
+    ncolumns = 10
     for n, row in enumerate(output, start=1):
         r = row.strip()
-        if ("& (1)" in row) and (not args.nostata):
+        if ("& (1)" in row) and (stata):
             col_num = row
             continue
         if "VARIABLES" in row:
@@ -361,7 +364,7 @@ def main():
                 main.append(col_num)
             main.append(r"\hline")
             continue
-        if not args.nostata:
+        if stata:
             if any(
                 re.search(pattern, r)
                 for pattern in [r"^Obs", r"^\$R\^2", r"Adj. \$R\^2\$", r"Wald F"]
@@ -399,7 +402,7 @@ def main():
         today = str(datetime.today()).split()[0]
         print(f"last update: {today}", file=output_file)
 
-    if args.nostata and not args.condensed:
+    if not stata and not args.condensed:
         print(r"\\", file=output_file)
     elif not args.myheader:
         print(r"\\", file=output_file)
@@ -423,9 +426,6 @@ def main():
             continue
         print(clean_line(row), file=output_file)
 
-    if not args.nostata:
-        print(f"{'&' * ncolumns} \\\\", file=output_file)
-
     last = "xxx"
     for i, row in enumerate(annotations):
         if condenser(row):
@@ -435,10 +435,10 @@ def main():
     for row in buffers:
         if "hline" in row:
             row = row[:-7]
-        if "obs" in row.lower() and not args.condensed:
+        if "Obs" in row.lower() and not args.condensed:
             last = printer(f"{'&' * ncolumns} \\\\", output_file, last)
         if condenser(row):
             continue
         print(clean_line(row), file=output_file)
-    if not args.nostata:
+    if not stata:
         print(r"\hline", file=output_file)
