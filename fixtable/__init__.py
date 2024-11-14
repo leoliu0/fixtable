@@ -70,15 +70,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def debug(message):
-    if args.debug:
-        logger.debug(message)
-
-
 def clean_line(l):
     l = l.strip()
     if re.search("^\\+$", l):
-        return r"\\" if args.nostata else ""
+        return r"\\"
     if not l:
         return ""
     if len(re.findall(r"hline", l)) > 1:
@@ -217,7 +212,7 @@ def process_column_header(l):
         if c_clean:
             counter += 2
             if c == current:
-                cline[-1] = i * 2
+                cline[-1] = i * 2 + 1
             else:
                 cline.append(i * 2) if i > 1 else cline.append(2)
                 cline.append(i * 2 + 1)
@@ -263,7 +258,7 @@ def main():
     skip = False
     stata = False
     for _n, row in enumerate(c):
-        if row.startswith("VARLABELS"):
+        if row.startswith("VARIABLES"):
             stata = True
         if skip:
             skip = False
@@ -334,10 +329,20 @@ def main():
     for n, row in enumerate(output, start=1):
         r = row.strip()
         if ("& (1)" in row) and (stata):
-            col_num = row
+            main.append(r"\\")
+            main.append(r"\hline")
+            if args.no_column_num:
+                continue
+            if args.myheader:
+                continue
+            main.append(row)
             continue
         if "VARIABLES" in row:
             ncolumns = len(row.split("&")) // 2
+            if args.noheader:
+                if not args.no_column_num:
+                    main.append(r"\hline")
+                continue
             r = r.replace("VARIABLES", "").replace(r"\hline", "")
             if ";" in r:
                 row1, row2, the_cline = repeat_title(r)
@@ -354,14 +359,14 @@ def main():
 
             elif not args.noheader:
                 the_header, the_cline = process_column_header(r)
-                main.append(args.dep + "&" + the_header + r"\\")
                 if args.cline:
                     main.append(r"\cline{" + args.cline + "}")
                 else:
-                    main.append(the_cline)
-
-            if col_num:
-                main.append(col_num)
+                    if len(re.findall(r"cline", the_cline)) == ncolumns:
+                        main.append(r"\cline{2-" + str(ncolumns*2 + 1) + "}")
+                    else:
+                        main.append(the_cline)
+                main.append(args.dep + "&" + the_header + r"\\")
             main.append(r"\hline")
             continue
         if stata:
@@ -373,10 +378,10 @@ def main():
                 #     r = r[:-2]
                 buffers.append(r)
                 continue
-            if re.search(r"FE&", r):
+            if "FE&" in r or "control" in r.lower():
                 if "hline" in r:
                     r = r[:-7]
-                fe.append(r)
+                fe.append(r) if "FE" in r else fe.insert(0, r)
                 continue
         if (
             len(main) > 0
@@ -402,16 +407,11 @@ def main():
         today = str(datetime.today()).split()[0]
         print(f"last update: {today}", file=output_file)
 
-    if not stata and not args.condensed:
+    if not stata and not args.condensed and not args.noheader:
         print(r"\\", file=output_file)
-    elif not args.myheader:
-        print(r"\\", file=output_file)
-        print(r"\hline", file=output_file)
 
     printed = []
     for i, row in enumerate(main):
-        if args.no_column_num and re.search(r"\(\d\)", row):
-            continue
         if condenser(row):
             continue
         l = clean_line(row)
@@ -426,19 +426,19 @@ def main():
             continue
         print(clean_line(row), file=output_file)
 
-    last = "xxx"
+    if stata:
+        print(f"{'&' * ncolumns} \\\\ ", file=output_file)
     for i, row in enumerate(annotations):
         if condenser(row):
             continue
-        last = printer(clean_line(row), output_file, last)
+        print(clean_line(row), file=output_file)
 
     for row in buffers:
         if "hline" in row:
             row = row[:-7]
-        if "Obs" in row.lower() and not args.condensed:
-            last = printer(f"{'&' * ncolumns} \\\\", output_file, last)
+        if "obs" in row.lower() and not args.condensed:
+            print(f"{'&' * ncolumns} \\\\ ", file=output_file)
         if condenser(row):
             continue
         print(clean_line(row), file=output_file)
-    if not stata:
-        print(r"\hline", file=output_file)
+    print(r"\hline", file=output_file)
