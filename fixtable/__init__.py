@@ -3,6 +3,13 @@ import argparse
 import re
 import sys
 from loguru import logger
+from .utils import (
+    add_parentheses_to_floats,
+    add_leading_zero_to_floats,
+    clean_table_cells,
+)
+
+from pathlib import Path
 
 parser = argparse.ArgumentParser(
     description="process files and customize output format."
@@ -66,12 +73,16 @@ parser.add_argument(
 parser.add_argument(
     "--feorder", action="store_true", help="reorder fixed effects in the output."
 )
+parser.add_argument("--addstat", default="Mean of")
 
 args = parser.parse_args()
 
+if Path(args.o).is_file():
+    logger.warning("Output file already exists .... ")
+
 
 def clean_line(l):
-    l = l.strip()
+    l = l.strip().replace("0000000000001", "")
     if re.search("^\\+$", l):
         return r"\\"
     if not l:
@@ -80,6 +91,7 @@ def clean_line(l):
         l = l.replace(r"\hline\\", "")
     if "_add_empty_line123" in l:
         return "\\\\\n"
+    # return clean_table_cells(l)
     return l
 
 
@@ -271,7 +283,7 @@ def main():
         if row.startswith("o."):
             continue
         for ctrl in args_c:
-            ctrl = ctrl.replace("_", "\\_").lower().replace("l.", "l.")
+            ctrl = ctrl.replace("_", "\\_").lower().replace("l.", "L.")
             if re.search(
                 r"\b" + ctrl.replace("\\", "").replace("_", "") + r"\b",
                 row.replace("\\", "").replace("_", ""),
@@ -324,25 +336,27 @@ def main():
     annotations = []
     buffers = []
     fe = []
+    other_stats = []
 
     ncolumns = 10
+    number_row = ""
     for n, row in enumerate(output, start=1):
         r = row.strip()
-        if ("& (1)" in row) and (stata):
+        if ("& (1)" in r) and (stata):
             main.append(r"\\")
             main.append(r"\hline")
             if args.no_column_num:
                 continue
             if args.myheader:
                 continue
-            main.append(row)
+            number_row = re.sub(r"\((\d+)\)\&\&", r"\\multicolumn{2}{c}{(\1)}&", r)
             continue
         if "VARIABLES" in row:
             ncolumns = len(row.split("&")) // 2
-            if args.noheader:
-                if not args.no_column_num:
-                    main.append(r"\hline")
-                continue
+            # if args.noheader:
+            #     if not args.no_column_num:
+            #         main.append(r"\hline")
+            #     continue
             r = r.replace("VARIABLES", "").replace(r"\hline", "")
             if ";" in r:
                 row1, row2, the_cline = repeat_title(r)
@@ -359,29 +373,51 @@ def main():
 
             elif not args.noheader:
                 the_header, the_cline = process_column_header(r)
+                main.append(args.dep + "&" + the_header + r"\\")
                 if args.cline:
                     main.append(r"\cline{" + args.cline + "}")
                 else:
                     if len(re.findall(r"cline", the_cline)) == ncolumns:
-                        main.append(r"\cline{2-" + str(ncolumns*2 + 1) + "}")
+                        main.append(r"\cline{2-" + str(ncolumns * 2 + 1) + "}")
                     else:
                         main.append(the_cline)
-                main.append(args.dep + "&" + the_header + r"\\")
-            main.append(r"\hline")
+            if number_row:
+                main.append(number_row)
+            if not args.myheader:
+                main.append(r"\hline")
             continue
         if stata:
             if any(
                 re.search(pattern, r)
-                for pattern in [r"^Obs", r"^\$R\^2", r"Adj. \$R\^2\$", r"Wald F"]
+                for pattern in [
+                    r"^Obs",
+                    r"^\$R\^2",
+                    r"Adj. \$R\^2\$",
+                    r"Wald F",
+                    "Kleiber",
+                ]
             ):
                 # if r.endswith("\\\\"):
                 #     r = r[:-2]
                 buffers.append(r)
                 continue
-            if "FE&" in r or "control" in r.lower():
+
+            if (
+                "FE&" in r
+                or "control" in r.lower()
+                or r.strip().startswith(("Diff", "Wald", args.addstat))
+            ):
                 if "hline" in r:
                     r = r[:-7]
-                fe.append(r) if "FE" in r else fe.insert(0, r)
+                # fe.append(r) if r.endswith("FE") else fe.insert(0, r)
+                if r.startswith("Diff"):
+                    fe.append(r"&&\\")
+                    r = add_leading_zero_to_floats(r)
+
+                if r.startswith("Wald"):
+                    r = add_parentheses_to_floats(r)
+
+                fe.append(r)
                 continue
         if (
             len(main) > 0
@@ -391,21 +427,25 @@ def main():
         ):
             annotations.append(r)
         else:
-            main.append(r)
+            main.append(r.replace("& .&", " & &").replace("& (.)&", " & &"))
 
     if args.feorder and len(fe) > 3:
         fe[-2], fe[-1] = fe[-1], fe[-2]
-    buffers = fe + buffers
+    buffers = fe + other_stats + buffers
 
     output_file = (
         open(args.o, "w") if args.o else (open(args.file, "w") if args.i else None)
     )
+    if args.i:
+        logger.info(f"replacing existing file {args.i}")
+    else:
+        logger.info(f"output file is \n {args.o}")
 
     if args.meta:
         from datetime import datetime
 
         today = str(datetime.today()).split()[0]
-        print(f"last update: {today}", file=output_file)
+        print(f"\\textcolor{{red}}{{Last update: {today}}}\n", file=output_file)
 
     if not stata and not args.condensed and not args.noheader:
         print(r"\\", file=output_file)
@@ -421,9 +461,19 @@ def main():
     if args.nocontrol:
         ctrls = ctrls[: args.nocontrol_n * 2] if args.nocontrol_n > 0 else []
 
-    for row in ctrls:
+    for i, row in enumerate(ctrls):
         if condenser(row):
             continue
+        if i < len(ctrls) - 1:
+            if "(.)" in ctrls[i + 1]:
+                cells_next = ctrls[i + 1].split("&")
+                cells = row.split("&")
+                for j, c in enumerate(cells_next):
+                    if c.strip() == "(.)":
+                        cells[j] = ""
+                row = "&".join(cells) + r"\\"
+        row = row.replace("(.)", "")
+
         print(clean_line(row), file=output_file)
 
     if stata:
