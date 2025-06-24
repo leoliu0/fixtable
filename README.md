@@ -3,7 +3,7 @@ This package cleaned up the latex files from outreg2 in Stata and any other late
 
 - installation
 ```bash
-pip install fixtable
+pip install -U git+https://github.com/leoliu0/fixtable
 ```
 
 - usage
@@ -24,5 +24,3 @@ Now, you could replace the table.tex with your fixed version:
 fixtable table.tex -v var.txt -i
 ```
 -i means inplace, this will replace the table.tex with your fix.
-
-

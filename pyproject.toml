@@ -15,7 +15,8 @@ requires-python = ">=3.7"
 keywords = ["stata", "table", "formatting", "command-line"]
 
 dependencies = [
-    "loguru"
+    "loguru",
+    "latex_table@git+https://github.com/leoliu0/latex_table"
 ]
 
 [project.scripts]
